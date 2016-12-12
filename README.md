@@ -1,17 +1,32 @@
 # Puma::FseventCleanup
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/puma/fsevent_cleanup`. To experiment with that code, run `bin/console` for an interactive prompt.
+Puma plugin to fix running too many fsevent_watch processes.
+Based on https://gist.github.com/steakknife/b318a570803b08c1548c7f51c18c0753
 
-TODO: Delete this and the text above, and describe your gem
+## Problem (on macOS only)
+
+- `Listen` fires up a `fsevent_watch` for every directory watched
+- Puma is a **threaded** server, restarting it doesn't restart the Ruby process
+- The development server + spring uses `Listen` to hot-reload code (models, views, controllers, etc.)
+- Restarting the server doesn't call `#stop` on the `Listen` instances
+- Tons and tons of `fsevent_watch` appear until `fork()` fails
+
+
+## Solution
+
+- Call `#stop` on all `Listen` instances (including yours), to kill off unneeded `fsevent_watch`
+
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'puma-fsevent_cleanup'
+# Gemfile
+group :development, :test do
+  gem 'puma-fsevent_cleanup'
+end
 ```
-
 And then execute:
 
     $ bundle
@@ -20,9 +35,22 @@ Or install it yourself as:
 
     $ gem install puma-fsevent_cleanup
 
-## Usage
+Add this to your `config/puma.rb`
 
-TODO: Write usage instructions here
+```ruby
+# config/puma.rb
+
+# kill off fsevent_watch in development
+plugin :fsevent_cleanup
+```
+
+**Notes**
+
+1. Works with MRI
+1. Won't work with JRuby unless ObjectSpace is enabled
+1. Might not work on Rubinius
+1. Don't use `bin/rails s` use `bin/bundle exec puma` because Rails + Puma + `rails c` is broken (both try to write `tmp/pids/server.pid`, rails doesn't like threaded servers restarting themselves)
+
 
 ## Development
 
@@ -32,10 +60,9 @@ To install this gem onto your local machine, run `bundle exec rake install`. To 
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/puma-fsevent_cleanup.
+Bug reports and pull requests are welcome on GitHub at https://github.com/actmd/puma-fsevent_cleanup.
 
 
 ## License
 
 The gem is available as open source under the terms of the [MIT License](http://opensource.org/licenses/MIT).
-
