@@ -41,7 +41,9 @@ Add this to your `config/puma.rb`
 # config/puma.rb
 
 # kill off fsevent_watch in development
-plugin :fsevent_cleanup
+if ENV.fetch('RACK_ENV', 'development') == 'development'
+  plugin :fsevent_cleanup
+end
 ```
 
 **Notes**
